@@ -68,8 +68,16 @@ def eliminar_servicio(servicio_id):
         cursor = connection.cursor()
         cursor.execute("DELETE FROM servicios WHERE id = %s", (servicio_id,))
         connection.commit()
+
+        # Verificar si se eliminó alguna fila
+        filas_afectadas = cursor.rowcount
         connection.close()
-        return True
+
+        if filas_afectadas > 0:
+            return True
+        else:
+            print(f"No se encontró el servicio con ID {servicio_id} para eliminar.")
+            return False
     except Error as e:
         print(f"Error al eliminar el servicio con ID '{servicio_id}': {e}")
         return False
