@@ -3,7 +3,8 @@ from tkinter import simpledialog, messagebox
 from utils.db_manager import obtener_servicios, agregar_servicio, registrar_estado, actualizar_estado_servicio, eliminar_servicio
 from monitor import verificar_estado
 import datetime
-
+import threading
+import winsound  # Para reproducir sonido en Windows
 
 
 class DashboardApp:
@@ -55,6 +56,13 @@ class DashboardApp:
 
         servicio_frame.canvas = canvas  # Guardar el canvas para actualizarlo más tarde
 
+    def reproducir_alerta(self):
+        """
+        Reproduce un sonido de alerta durante 5 segundos.
+        """
+        for _ in range(5):  # Repetir el sonido durante 5 segundos
+            winsound.Beep(1000, 1000)  # Frecuencia 1000 Hz, duración 1 segundo
+
     def actualizar_estado_servicios(self):
         servicios = obtener_servicios()
         hora_actual = datetime.datetime.now()
@@ -69,6 +77,10 @@ class DashboardApp:
                         if label.cget("text") == servicio["nombre"]:
                             canvas = widget.canvas
                             canvas.config(bg="green" if estado == "online" else "red")
+
+                            # Si el servicio está offline, activar alerta sonora
+                            if estado == "offline":
+                                threading.Thread(target=self.reproducir_alerta).start()  # Reproducir alerta en un hilo separado
                             break
 
         self.root.after(60000, self.actualizar_estado_servicios)
@@ -93,7 +105,7 @@ class DashboardApp:
     def eliminar_servicio(self, servicio_id, servicio_frame):
         if eliminar_servicio(servicio_id):
             messagebox.showinfo("Éxito", "El servicio ha sido eliminado correctamente.")
-            servicio_frame.destroy()  # Elimina el frame del servicio de la interfaz
+            servicio_frame.destroy()  # Eliminar el frame del servicio de la interfaz
         else:
             messagebox.showerror("Error", "No se pudo eliminar el servicio. Verifique que exista.")
 
