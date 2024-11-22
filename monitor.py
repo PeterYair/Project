@@ -1,32 +1,42 @@
+from concurrent.futures import ThreadPoolExecutor
 import requests
+import logging
 
+# Configuración de logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+# Verificar un solo servicio
 def verificar_estado(servicio_id, url):
-    """
-    Verifica si un servicio está online o offline haciendo una solicitud HTTP.
-    :param servicio_id: ID del servicio (opcional, no se utiliza aquí directamente).
-    :param url: URL del servicio a verificar.
-    :return: "online" si el servicio responde correctamente, "offline" en caso contrario.
-    """
-    # Encabezados personalizados para simular una solicitud legítima
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         "Accept-Language": "es-ES,es;q=0.9",
         "Accept-Encoding": "gzip, deflate, br",
-        "Referer": "https://google.com",  # Simula venir desde Google
+        "Referer": "https://google.com",
     }
-
     try:
-        print(f"Verificando estado de {url}...")  # Mensaje de depuración
-        # Hacer una solicitud HTTP con los encabezados personalizados
         response = requests.get(url, headers=headers, timeout=10)
-
-        # Evaluar el estado HTTP de la respuesta
-        if response.status_code == 200:
-            print(f"Servicio {url} está online.")
-            return "online"
-        else:
-            print(f"Servicio {url} está offline con código {response.status_code}.")
-            return "offline"
+        return {
+            "id": servicio_id,
+            "url": url,
+            "status": "online" if response.status_code == 200 else "offline",
+            "status_code": response.status_code,
+            "response_time": response.elapsed.total_seconds()
+        }
+    except requests.exceptions.Timeout:
+        return {"id": servicio_id, "url": url, "status": "offline", "error": "timeout"}
+    except requests.exceptions.ConnectionError:
+        return {"id": servicio_id, "url": url, "status": "offline", "error": "connection_error"}
     except requests.exceptions.RequestException as e:
-        print(f"Error al verificar el servicio {url}: {str(e)}")
-        return "offline"
+        return {"id": servicio_id, "url": url, "status": "offline", "error": str(e)}
+
+# Verificar múltiples servicios usando un pool de hilos
+def verificar_servicios_concurrente(servicios, max_workers=10):
+    resultados = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futuros = {executor.submit(verificar_estado, s["id"], s["url"]): s for s in servicios}
+        for futuro in futuros:
+            try:
+                resultados.append(futuro.result())
+            except Exception as e:
+                logging.error(f"Error al verificar servicio: {e}")
+    return resultados
